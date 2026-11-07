@@ -16,7 +16,7 @@ The project was developed with **OpenCode using the Big Pickle agent**, and ever
 - **Educational background** — elementary, secondary, and college history with years and status.
 - **Skills & Tools** — grouped technical skills with proficiency bars, shown before certifications.
 - **Certifications & Seminars** — certificate cards with images, titles, issuers, and dates.
-- **Projects** — a responsive project grid with an empty state, ready for future work.
+- **Projects** — a responsive project grid with a published system and screenshot gallery, ready for more work.
 - **GitHub repository links** — clickable links to the GitHub profile and the portfolio repository.
 
 A bonus static **dashboard** page (`/dashboard`) gives a quick overview of the portfolio content and readiness.
@@ -28,7 +28,8 @@ A bonus static **dashboard** page (`/dashboard`) gives a quick overview of the p
 - **Tailwind CSS 3**
 - **Vite 7**
 - **Alpine.js** for the mobile navigation
-- **SQLite not required** — sessions and cache use flat files
+- **SQLite not required** — sessions and cache use flat files locally, and in-memory drivers on Vercel
+- **Vercel container runtime (FrankenPHP)** for production
 
 ## Getting started
 
@@ -77,9 +78,13 @@ resources/views/
   layouts/portfolio.blade.php Main Blade layout
   components/portfolio/       Navbar, footer, icons, cards, section heading
   portfolio/home.blade.php    Public portfolio page
+  portfolio/project.blade.php Project detail page with screenshot lightbox
   portfolio/dashboard.blade.php Static dashboard page
-routes/web.php                Two static routes: / and /dashboard
-tests/Feature/PortfolioTest.php Feature coverage for both pages
+routes/web.php                Static pages: /, /dashboard, /projects/{slug}, /health
+Dockerfile                    Vercel container image (FrankenPHP + Vite build)
+Caddyfile                     Web server config for the container
+vercel.json                   Vercel container service + rewrites
+tests/Feature/PortfolioTest.php Feature coverage for all pages
 PROMPT_LOG.md                 AI prompt documentation
 ```
 
@@ -107,16 +112,21 @@ Add an entry to the `projects` array in `config/portfolio.php`:
 
 ```php
 [
+    'slug' => 'project-slug',
     'title' => 'Project name',
     'description' => 'What the project does and what you learned.',
     'tags' => ['Laravel', 'Blade', 'Tailwind CSS'],
     'repo' => 'https://github.com/vincelabero/your-repository',
     'demo' => null,
     'year' => '2026',
+    'cover' => 'images/projects/project-slug/cover.png',
+    'images' => [
+        ['src' => 'images/projects/project-slug/cover.png', 'caption' => 'Project screen'],
+    ],
 ],
 ```
 
-The public project grid and the dashboard update automatically.
+The public project grid, the `/projects/{slug}` detail page, and the dashboard update automatically.
 
 ## Activity compliance
 
@@ -129,7 +139,7 @@ The public project grid and the dashboard update automatically.
 | Educational background | Three-card education section |
 | Skills & tools | Three grouped skill cards with proficiency bars |
 | Certifications & seminars | Three certificate cards with images, dates, and issuers |
-| Projects | Responsive project grid with a designed empty state |
+| Projects | Responsive project grid with a published project and screenshot gallery |
 | GitHub links | Profile and repository links throughout the site |
 | Public repository | <https://github.com/vincelabero/vincelportfolio> |
 | Prompt documentation | [`PROMPT_LOG.md`](PROMPT_LOG.md) and `IPA_MIDTERM_REPORT.docx` |
@@ -151,6 +161,53 @@ Use descriptive commit messages for each section or feature, such as:
 - `Add educational background section to resume blade`
 - `Style project cards and add GitHub repository links`
 - `Build static portfolio dashboard with readiness summary`
+
+## Deploying to Vercel (GitHub)
+
+This repository is configured for **Vercel's container runtime** using FrankenPHP. The deployment files are already committed:
+
+- `Dockerfile` — installs Composer dependencies, builds the Vite/Tailwind assets with Node, and runs Laravel on FrankenPHP
+- `Caddyfile` — serves `public/` and routes PHP requests to `public/index.php`
+- `vercel.json` — declares the container service and sends all traffic to it
+- `.dockerignore` / `.vercelignore` — keep local dependencies and secrets out of the build
+
+### 1. Import the repository
+
+1. Open <https://vercel.com/new>.
+2. Import **`vincelabero/vincelportfolio`**.
+3. Leave the root directory and build settings at their defaults — Vercel reads `vercel.json` and builds the Docker image automatically.
+
+### 2. Add the required environment variable
+
+In **Project → Settings → Environment Variables**, add:
+
+| Name | Value |
+| --- | --- |
+| `APP_KEY` | the output of `php artisan key:generate --show` |
+| `APP_URL` | your production URL, e.g. `https://vincelportfolio.vercel.app` |
+
+`APP_KEY` is required; without it Laravel cannot encrypt cookies and every page returns a 500 error. `APP_ENV`, `APP_DEBUG`, `LOG_CHANNEL`, `CACHE_STORE`, `SESSION_DRIVER`, and `QUEUE_CONNECTION` are already set safely in the `Dockerfile`.
+
+### 3. Deploy
+
+Click **Deploy**. After the first deployment, update `APP_URL` with the real Vercel domain (or custom domain) and redeploy.
+
+Verify the deployment with:
+
+- `/` — portfolio home
+- `/health` — JSON health check
+- `/up` — Laravel's built-in health endpoint
+
+### Local container test (optional)
+
+```bash
+docker build -t vincelportfolio .
+docker run --rm -p 8080:80 -e APP_KEY="base64:..." vincelportfolio
+```
+
+Then open <http://localhost:8080>.
+
+> Vercel's container runtime is in beta (available on all plans as of November 2026). The filesystem is read-only and ephemeral, which is why sessions and cache use in-memory drivers; the portfolio has no database or file uploads, so no external storage is needed.
 
 ## Author
 

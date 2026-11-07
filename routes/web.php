@@ -15,3 +15,8 @@ Route::get('/projects/{project}', function (string $project) {
 })->name('project.show');
 
 Route::view('/dashboard', 'portfolio.dashboard')->name('dashboard');
+
+Route::get('/health', fn () => response()->json([
+    'status' => 'ok',
+    'app' => config('portfolio.name'),
+]))->name('health');
